@@ -10,6 +10,7 @@ import soundfile as sf
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import QSettings
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from audio_recorder import AudioRecorder
@@ -214,6 +215,30 @@ def test_mp3_is_default_in_both_settings_dialogs(window):
         assert advanced.combo_fmt.currentText() == "MP3"
     finally:
         advanced.close()
+
+
+def test_folder_path_click_creates_and_opens_recordings_folder(window, monkeypatch):
+    opened = []
+
+    def open_url(url):
+        folder = Path(url.toLocalFile())
+        assert folder.is_dir()
+        opened.append(folder)
+        return True
+
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
+    assert not window.output_folder.exists()
+    window.folder_button.click()
+    assert opened == [window.output_folder]
+
+
+def test_folder_path_click_reports_open_failure(window, monkeypatch):
+    warnings = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: False)
+    monkeypatch.setattr(QMessageBox, "warning", lambda _parent, _title, detail: warnings.append(detail))
+    window.folder_button.click()
+    assert len(warnings) == 1
+    assert str(window.output_folder) in warnings[0]
 
 
 def test_global_hotkeys_use_participant_code_and_stop(window):

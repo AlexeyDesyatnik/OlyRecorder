@@ -5,11 +5,12 @@ from enum import Enum, auto
 from pathlib import Path
 
 from PyQt6.QtCore import QMimeData, QSettings, QSize, QStandardPaths, Qt, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QIcon, QKeySequence, QPainter, QPixmap, QShortcut
+from PyQt6.QtGui import QDesktopServices, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFrame,
-    QHBoxLayout, QLabel, QLayout, QLineEdit, QMenu, QPushButton, QToolButton, QVBoxLayout, QWidget,
+    QHBoxLayout, QLabel, QLayout, QLineEdit, QMenu, QMessageBox, QPushButton, QToolButton,
+    QVBoxLayout, QWidget,
 )
 
 from audio_recorder import AudioRecorder, get_devices
@@ -268,11 +269,11 @@ class OlympiadWindow(QWidget):
         column.addSpacing(21)
 
         self.folder_button = QPushButton(objectName="folder")
-        self.folder_button.setAccessibleName("Папка записи и настройки")
+        self.folder_button.setAccessibleName("Открыть папку с записями")
         self.folder_button.setIcon(QIcon(icon_pixmap(FOLDER, 15, "#7b8796", self.devicePixelRatioF())))
         self.folder_button.setIconSize(QSize(15, 15))
         self.folder_button.setFixedHeight(20)
-        self.folder_button.clicked.connect(self.open_settings)
+        self.folder_button.clicked.connect(self.open_output_folder)
         column.addWidget(self.folder_button)
         self.settings_shortcut = QShortcut(QKeySequence("Ctrl+,"), self)
         self.settings_shortcut.activated.connect(self.open_settings)
@@ -342,8 +343,19 @@ class OlympiadWindow(QWidget):
         path = str(self.output_folder)
         abbreviated = self.folder_button.fontMetrics().elidedText(path, Qt.TextElideMode.ElideMiddle, 340)
         self.folder_button.setText(abbreviated)
-        self.folder_button.setToolTip(f"{path}\nНажмите, чтобы открыть настройки записи")
+        self.folder_button.setToolTip(f"{path}\nОткрыть папку в Проводнике")
         self.refresh_recent()
+
+    def open_output_folder(self):
+        try:
+            folder = self.output_folder.absolute()
+            folder.mkdir(parents=True, exist_ok=True)
+            if QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder))):
+                return
+            detail = "Windows не удалось открыть папку в Проводнике."
+        except OSError as exc:
+            detail = str(exc)
+        QMessageBox.warning(self, "Не удалось открыть папку", f"{self.output_folder}\n\n{detail}")
 
     def refresh_recent(self):
         while self.recent.count():
