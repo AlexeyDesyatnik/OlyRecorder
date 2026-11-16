@@ -1,119 +1,54 @@
-# Quick Audio Recorder
+# Olympiad Recorder
 
-**Quick Audio Recorder** is a minimalist, yet powerful tool for Windows to quickly record audio from your microphone, system audio (loopback), or both simultaneously.  
-It sits quietly in your system tray and is always ready with a single click or global hotkey.
+Программа для записи устных ответов участников олимпиады по английскому языку. При обычном запуске открывается окно PyQt6 с полем кода участника, кнопками записи, списком трёх последних файлов и путём к папке. Аудиозахват и кодирование основаны на [QuickAudioRecorder](https://github.com/lukmay/QuickAudioRecorder).
 
-<img width="393" height="156" alt="image" src="https://github.com/user-attachments/assets/7e3bfcaf-6f58-4404-b85a-4ba0b6fea085" />
+## Работа с программой
 
-## Contributing
+1. В меню **Настройки** выберите **Основные настройки…**, чтобы указать микрофон, папку и формат. Этот диалог также открывается нажатием на путь внизу окна или сочетанием `Ctrl+,`. По умолчанию используются системный микрофон, MP3 с битрейтом 192 кбит/с и папка `Olympiad Recorder` в пользовательских документах. Также доступны WAV и FLAC.
+2. Введите код участника и проверьте имя файла под полем. Можно использовать до 64 латинских букв, цифр, дефисов и знаков подчёркивания. Пробелы по краям убираются, ведущие нули сохраняются. Системные имена Windows, например `CON` и `COM1`, недопустимы.
+3. Нажмите **Начать**, затем **Стоп**. Поле кода очистится сразу, а имя сохраняемого файла останется привязано к начатой записи. Пока идёт запись или сохранение, поле ввода, настройки и закрытие окна заблокированы. После сохранения в папке появится файл вида `00125.wav`.
+4. Если файл уже существует, выберите другой код или папку. Если одноимённый файл появился во время записи, завершённое аудио останется рядом под именем вида `.oly-00125-….wav`. Путь указан в панели ошибки. Этот файл можно перенести или переименовать вручную.
+5. Если запись прервалась из-за устройства, программа попытается сохранить записанный фрагмент и сообщит результат. При сбое экспорта уже записанный исходный WAV остаётся во временной папке Windows. Скопируйте его по пути из панели ошибки до очистки временных файлов.
 
-If you've forked this and built something useful on top, PRs are very welcome. Same goes for bug reports, open an issue, even if it's just "doesn't work on my machine, here's what I tried."
+Пункт **Все настройки…** открывает исходное окно QuickAudioRecorder со всеми разделами. Сохранённые параметры микрофона, папки и формата видны в обоих диалогах. В основном окне работают запись в моно, нормализация, автостоп, копирование файла в буфер и глобальные горячие клавиши. Горячие клавиши запуска используют введённый код участника и могут выбрать микрофон, системный звук или оба источника.
 
-A few things I'd find handy but haven't gotten around to: Linux/macOS support, more export formats, a proper config file instead of the current settings dialog. But honestly, anything you think makes the tool better is fair game. Keep it small and focused so it's easy to review.
+Щелчок по значку, уведомления в трее и перенос файла во временную папку после копирования действуют в режиме трея, который запускается через `python main.py --tray` или `OlympiadRecorder.exe --tray`.
 
-Before opening a larger PR, please check [CONTRIBUTING.md](CONTRIBUTING.md) for what's in scope and what to include.
+## Сборка и тесты на Windows 10 LTSC
 
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/lukmay/QuickAudioRecorder/pulls)
-[![Issues](https://img.shields.io/github/issues/lukmay/QuickAudioRecorder)](https://github.com/lukmay/QuickAudioRecorder/issues)
+Целевая конфигурация для этих шагов — Windows 10 LTSC x64 версии 1809 или новее и Python 3.12 x64. Qt 6.8 поддерживает эту версию Windows. [Qt for Windows](https://doc.qt.io/qt-6.8/windows.html)
 
-### Contributors
+В PowerShell из корня репозитория выполните:
 
-Thanks to everyone who has helped make this tool better!
-
-Code:
-
-<!-- one <td> per person, the avatar comes from github.com/<user>.png -->
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/lukmay"><img src="https://github.com/lukmay.png?size=100" width="80" alt="lukmay"><br><sub>lukmay</sub></a></td>
-    <td align="center"><a href="https://github.com/phoenixray2000"><img src="https://github.com/phoenixray2000.png?size=100" width="80" alt="phoenixray2000"><br><sub>phoenixray2000</sub></a></td>
-    <td align="center"><a href="https://github.com/Metaphizik"><img src="https://github.com/Metaphizik.png?size=100" width="80" alt="Metaphizik"><br><sub>Metaphizik</sub></a></td>
-    <td align="center"><a href="https://github.com/jadmthw"><img src="https://github.com/jadmthw.png?size=100" width="80" alt="jadmthw"><br><sub>jadmthw</sub></a></td>
-  </tr>
-</table>
-
-Bug reports and feature ideas:
-
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/laboratoriobhost"><img src="https://github.com/laboratoriobhost.png?size=100" width="50" alt="laboratoriobhost"><br><sub>laboratoriobhost</sub></a></td>
-    <td align="center"><a href="https://github.com/ant1j"><img src="https://github.com/ant1j.png?size=100" width="50" alt="ant1j"><br><sub>ant1j</sub></a></td>
-    <td align="center"><a href="https://github.com/ColaIan"><img src="https://github.com/ColaIan.png?size=100" width="50" alt="ColaIan"><br><sub>ColaIan</sub></a></td>
-    <td align="center"><a href="https://github.com/ParanormalBanana"><img src="https://github.com/ParanormalBanana.png?size=100" width="50" alt="ParanormalBanana"><br><sub>ParanormalBanana</sub></a></td>
-    <td align="center"><a href="https://github.com/mreekie"><img src="https://github.com/mreekie.png?size=100" width="50" alt="mreekie"><br><sub>mreekie</sub></a></td>
-    <td align="center"><a href="https://github.com/rplaughl"><img src="https://github.com/rplaughl.png?size=100" width="50" alt="rplaughl"><br><sub>rplaughl</sub></a></td>
-    <td align="center"><a href="https://github.com/tragen2022"><img src="https://github.com/tragen2022.png?size=100" width="50" alt="tragen2022"><br><sub>tragen2022</sub></a></td>
-  </tr>
-</table>
-
-## Features
-
-### My favourite use case 💖
-
-Quickly recording audio and pasting it anywhere, e.g. into Anki cards.  
-*(Files can be set to auto-delete, so nothing stays on disk, the clip just lands in your clipboard.)*
-
-https://github.com/user-attachments/assets/14238816-c1ee-4914-9211-5f0007bfe999
-
-
-
-### Settings Showcase
-
-<img width="575" height="724" alt="image" src="https://github.com/user-attachments/assets/b35131bc-1ff8-41e1-87b5-1e472f9da981" />
-
-
--   **Modes:**
-    -   🎤 **Microphone:** Record your voice.
-    -   🔊 **System Audio:** Record what you hear (Loopback).
-    -   🎙️+🔊 **Both:** Record both tracks simultaneously (mixed).
--   **Output:** MP3, WAV or FLAC, optionally saved as mono for smaller voice clips.
--   **Post-Processing:**
-    -   **Auto-Normalize:** Automatically adjusts volume to optimal levels after recording. In "Both" mode, mic and system audio are leveled separately first, so a quiet voice is not buried under loud system audio.
-    -   **Clipboard Integration:** Automatically copies the file (or file path) to your clipboard.
-    -   **Clean Workflow:** Option to move the file to a temp folder and copy it, keeping your desktop clean.
--   **Control:**
-    -   **Global Hotkeys:** Start/Stop recording from anywhere (e.g., `Ctrl+Alt+R`).
-    -   **Tray Icon:** Left-click to toggle recording immediately.
-    -   **Visual Feedback:** Tray icon turns red while recording (hover it to see how long) and orange while saving, filling up as the file gets written.
-    -   **Auto-Stop:** Optionally stop and save after a set number of minutes.
--   **Unplug Safety:** If a device is lost mid-recording (unplugged mic, headset out of range), the recording stops and everything captured up to that point is saved. The tray shows which device was lost.
-
-## Installation
-
-1.  Go to the [Releases](https://github.com/lukmay/QuickAudioRecorder/releases) page.
-2.  Download `QuickAudioRecorder.exe`, or `QuickAudioRecorder-arm64.exe` on a Windows ARM device (e.g. a Snapdragon laptop).
-3.  Run it! (No installation required).
-
-The exe is built by [GitHub Actions](.github/workflows/release.yml) straight from the tagged source, and each release has a `.sha256` file to check the download against. Some antivirus scanners flag PyInstaller apps in general. If you would rather not trust a binary, [build it yourself](#build-from-source).
-
-## Usage
-
-1.  **Right-click** the tray icon to open **Settings**.
-2.  Select your **Microphone** and **Output Folder**.
-3.  Set your **Hotkeys** (optional).
-4.  **Left-click** the tray icon or use a hotkey to start recording.
-5.  Click again to stop. The file is saved and ready to use!
-
-## Development
-
-### Requirements
--   Python 3.12+
--   `pip install PyQt6 soundcard sounddevice soundfile numpy lameenc keyboard`
-
-### Tests
-```bash
-pip install pytest
-python -m pytest
-```
-The tests use fake audio devices, so they run anywhere. If [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) is installed, `tests/test_cable.py` also records a real tone through the cable without touching your default speakers or microphone.
-
-### Build from Source
-To create the standalone executable:
-```bash
-pip install pyinstaller
-pyinstaller --noconsole --onefile --noupx --name QuickAudioRecorder main.py
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install "PyQt6~=6.8.0" "PyQt6-Qt6~=6.8.0" soundcard sounddevice soundfile numpy lameenc keyboard pytest pyinstaller
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m PyInstaller --noconsole --onefile --noupx --name OlympiadRecorder main.py
+.\dist\OlympiadRecorder.exe
 ```
 
-## License
+Для запуска из исходников используйте `.\.venv\Scripts\python.exe main.py`. Автоматические тесты подменяют микрофон. Дополнительные проверки аудиотракта выполняются при наличии [VB-Audio Virtual Cable](https://vb-audio.com/Cable/).
 
-[MIT](LICENSE)
+На целевом компьютере запустите собранный EXE и:
+
+1. Выберите рабочий микрофон и папку. Запишите с физического микрофона код `00125` в WAV, затем в MP3. Откройте оба файла и прослушайте их.
+2. Повторите запуск с тем же кодом и форматом. Проверьте сообщение о конфликте и убедитесь, что первый файл сохранился.
+3. Начните новую запись, отключите микрофон после нескольких секунд речи и проверьте сообщение об ошибке и сохранённый фрагмент.
+4. Сверьте внешний вид с [макетами](docs/ui-reference/) при рабочем масштабе экрана. Откройте оба диалога настроек и проверьте, что после перезапуска EXE видны сохранённые параметры.
+5. Во время записи попробуйте закрыть окно крестиком и сочетанием `Alt+F4`. Убедитесь, что запись продолжается. Нажмите **Стоп**, проверьте пустое поле кода и дождитесь сохранения файла с исходным кодом. После этого окно должно закрываться обычным способом.
+
+## CI и выпуск релиза
+
+GitHub Actions запускает тесты и собирает EXE для Windows x64 и ARM64 при push в `master` и обновлении pull request. Сборки и файлы SHA-256 доступны в разделе **Artifacts** прогона **CI and release**. Этот прогон также можно запустить вручную.
+
+Для выпуска отправьте тег `v*` с нужного коммита. Например, для версии `v0.1.0`:
+
+```powershell
+git tag -a v0.1.0 -m "Olympiad Recorder v0.1.0"
+git push origin v0.1.0
+```
+
+После успешных тестов и сборки GitHub создаст черновик релиза с файлами `OlympiadRecorder.exe` для Windows x64, `OlympiadRecorder-arm64.exe` для Windows ARM64 и контрольными суммами. Проверьте вложения и опубликуйте черновик в **Releases**.
+
+Лицензия [MIT](LICENSE).

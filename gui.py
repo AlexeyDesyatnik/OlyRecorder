@@ -16,6 +16,39 @@ from audio_recorder import AudioRecorder, get_devices
 from clipboard_utils import copy_file_to_clipboard
 
 CONFIG_FILE = "settings.json"
+SHARED_KEYS = {"output_folder": "folder", "format": "format", "device_id": "microphone"}
+
+
+def load_recording_settings(settings=None):
+    data = settings.value("full_settings") if settings is not None else None
+    if data is None:
+        try:
+            with open(CONFIG_FILE, encoding="utf-8") as file:
+                data = json.load(file)
+        except (OSError, ValueError):
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    if settings is not None:
+        for key, stored_key in SHARED_KEYS.items():
+            if settings.contains(stored_key):
+                data[key] = settings.value(stored_key)
+    return data
+
+
+def bind_hotkeys(settings, emit):
+    registered = []
+    assigned = set()
+    for key, mode in (("hk_mic", "mic"), ("hk_loop", "loopback"),
+                      ("hk_both", "both"), ("hk_stop", "stop")):
+        hotkey = str(settings.get(key) or "").strip().lower()
+        if hotkey and hotkey not in assigned:
+            try:
+                registered.append(keyboard.add_hotkey(hotkey, lambda mode=mode: emit(mode)))
+                assigned.add(hotkey)
+            except Exception as exc:
+                print(f"Failed to register hotkey {hotkey}: {exc}")
+    return registered
 
 def resource_path(relative_path):
     try:
@@ -107,13 +140,18 @@ class HotkeyEdit(QLineEdit):
 class SettingsWindow(QMainWindow):
     settings_saved = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, settings=None, defaults=None):
         super().__init__(parent)
-        self.setWindowTitle("Settings - Simple Audio Recorder")
+        self.setWindowTitle("Settings - Olympiad Recorder")
         self.setGeometry(100, 100, 500, 600)
+        self.settings = settings
+        self.defaults = defaults or {}
         
         self.init_ui()
-        self.load_settings()
+        try:
+            self.load_settings()
+        except (TypeError, ValueError, AttributeError) as exc:
+            print(f"Error loading settings: {exc}")
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -177,6 +215,8 @@ class SettingsWindow(QMainWindow):
         self.chk_clipboard = QCheckBox("Copy File to Clipboard")
         self.chk_delete = QCheckBox("Delete after Copy (Move to Temp)")
         self.chk_delete.setToolTip("Moves the file to the system temp folder before copying, keeping your output folder clean.")
+        if self.parentWidget() is not None:
+            self.chk_delete.setText("Delete after Copy (tray mode only)")
         self.chk_delete.setEnabled(False)
         self.chk_clipboard.toggled.connect(lambda c: self.chk_delete.setEnabled(c))
         
@@ -207,16 +247,20 @@ class SettingsWindow(QMainWindow):
         self.refresh_devices()
 
     def refresh_devices(self):
+        selected = self.combo_mic.currentData()
         self.combo_mic.clear()
         try:
             mics = get_devices(include_loopback=False)
-            default_mic = sc.default_microphone()
+            if self.settings is not None:
+                self.combo_mic.addItem("Windows default microphone", "")
+            else:
+                default_mic = sc.default_microphone()
             default_index = 0
-            for i, m in enumerate(mics):
+            for m in mics:
                 self.combo_mic.addItem(f"{m['name']}", m['id'])
-                if m['id'] == default_mic.id:
-                    default_index = i
-            self.combo_mic.setCurrentIndex(default_index)
+                if self.settings is None and m['id'] == default_mic.id:
+                    default_index = self.combo_mic.count() - 1
+            self.select_microphone(selected, default_index)
         except Exception as e:
             print(f"Error refreshing devices: {e}")
 
@@ -225,47 +269,46 @@ class SettingsWindow(QMainWindow):
         if folder:
             self.lbl_folder.setText(folder)
 
+    def select_microphone(self, device_id, default_index=0):
+        index = self.combo_mic.findData(device_id)
+        if index < 0 and device_id and self.settings is not None:
+            self.combo_mic.addItem("Selected microphone is unavailable", device_id)
+            index = self.combo_mic.count() - 1
+        self.combo_mic.setCurrentIndex(default_index if index < 0 else index)
+
     def load_settings(self):
-        if os.path.exists(CONFIG_FILE):
-            try:
-                with open(CONFIG_FILE, 'r') as f:
-                    data = json.load(f)
-                    
-                self.lbl_folder.setText(data.get("output_folder", os.getcwd()))
-                fmt_idx = self.combo_fmt.findText(data.get("format", "MP3"))
-                if fmt_idx >= 0: self.combo_fmt.setCurrentIndex(fmt_idx)
-                
-                saved_id = data.get("device_id")
-                if saved_id:
-                    idx = self.combo_mic.findData(saved_id)
-                    if idx >= 0: self.combo_mic.setCurrentIndex(idx)
-
-                mode = data.get("tray_click_mode", "Last Used")
-                mode_idx = self.combo_left_click.findText(mode)
-                if mode_idx >= 0: self.combo_left_click.setCurrentIndex(mode_idx)
-                self.spin_auto_stop.setValue(data.get("auto_stop_min", 0))
-                self.chk_notifications.setChecked(data.get("notifications", True))
-
-                self.chk_mono.setChecked(data.get("mono", False))
-                self.chk_normalize.setChecked(data.get("normalize", False))
-                self.chk_clipboard.setChecked(data.get("clipboard", False))
-                self.chk_delete.setChecked(data.get("delete_after", False))
-                self.chk_delete.setEnabled(self.chk_clipboard.isChecked())
-
-                self.hk_mic.setText(data.get("hk_mic", ""))
-                self.hk_loop.setText(data.get("hk_loop", ""))
-                self.hk_both.setText(data.get("hk_both", ""))
-                self.hk_stop.setText(data.get("hk_stop", ""))
-            except Exception as e:
-                print(f"Error loading settings: {e}")
+        data = self.defaults | load_recording_settings(self.settings)
+        self.lbl_folder.setText(data.get("output_folder", os.getcwd()))
+        self.combo_fmt.setCurrentText(data.get("format", "MP3").upper())
+        self.select_microphone(data.get("device_id"), self.combo_mic.currentIndex())
+        self.combo_left_click.setCurrentText(data.get("tray_click_mode", "Last Used"))
+        self.spin_auto_stop.setValue(data.get("auto_stop_min", 0))
+        self.chk_notifications.setChecked(data.get("notifications", True))
+        self.chk_mono.setChecked(data.get("mono", False))
+        self.chk_normalize.setChecked(data.get("normalize", False))
+        self.chk_clipboard.setChecked(data.get("clipboard", False))
+        self.chk_delete.setChecked(data.get("delete_after", False))
+        self.chk_delete.setEnabled(self.chk_clipboard.isChecked())
+        self.hk_mic.setText(data.get("hk_mic", ""))
+        self.hk_loop.setText(data.get("hk_loop", ""))
+        self.hk_both.setText(data.get("hk_both", ""))
+        self.hk_stop.setText(data.get("hk_stop", ""))
 
     def save_settings(self):
         data = self.get_settings()
         try:
-            with open(CONFIG_FILE, 'w') as f:
-                json.dump(data, f)
-            QMessageBox.information(self, "Settings", "Settings saved successfully.")
+            if self.settings is None:
+                with open(CONFIG_FILE, "w", encoding="utf-8") as file:
+                    json.dump(data, file)
+            else:
+                self.settings.setValue("full_settings", data)
+                for key, stored_key in SHARED_KEYS.items():
+                    self.settings.setValue(stored_key, data[key])
+                self.settings.sync()
+                if self.settings.status() != self.settings.Status.NoError:
+                    raise OSError("Could not write recording settings")
             self.settings_saved.emit()
+            QMessageBox.information(self, "Settings", "Settings saved successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save settings: {e}")
 
@@ -288,7 +331,7 @@ class SettingsWindow(QMainWindow):
         }
 
 class TrayApplication(QObject):
-    def __init__(self, app):
+    def __init__(self, app, settings=None):
         super().__init__()
         self.app = app
         self.recorder = None
@@ -319,7 +362,7 @@ class TrayApplication(QObject):
         self.build_menu()
         self.tray_icon.show()
         
-        self.settings_window = SettingsWindow()
+        self.settings_window = SettingsWindow(settings=settings)
         self.settings_window.settings_saved.connect(self.register_hotkeys)
         
         self.notify("Ready", "Left-click to toggle recording.", QSystemTrayIcon.MessageIcon.Information, 2000)
@@ -378,18 +421,7 @@ class TrayApplication(QObject):
     def register_hotkeys(self):
         try: keyboard.unhook_all_hotkeys() # Ensure no old hotkeys are active
         except: pass
-        settings = self.settings_window.get_settings()
-        hk_mic = settings.get("hk_mic")
-        hk_loop = settings.get("hk_loop")
-        hk_both = settings.get("hk_both")
-        hk_stop = settings.get("hk_stop")
-        try:
-            # keyboard runs callbacks on its own thread, hand them to the Qt thread
-            if hk_mic: keyboard.add_hotkey(hk_mic, lambda: self.signals.hotkey.emit("mic"))
-            if hk_loop: keyboard.add_hotkey(hk_loop, lambda: self.signals.hotkey.emit("loopback"))
-            if hk_both: keyboard.add_hotkey(hk_both, lambda: self.signals.hotkey.emit("both"))
-            if hk_stop: keyboard.add_hotkey(hk_stop, lambda: self.signals.hotkey.emit("stop"))
-        except Exception as e: print(f"Failed to register hotkeys: {e}")
+        bind_hotkeys(self.settings_window.get_settings(), self.signals.hotkey.emit)
 
     def on_hotkey(self, mode):
         # a record hotkey pressed again stops the recording
@@ -424,7 +456,7 @@ class TrayApplication(QObject):
         if self.recorder and self.recorder.is_alive(): return
         self.last_mode = mode    
         settings = self.settings_window.get_settings()
-        target_id = settings['device_id']
+        target_id = settings['device_id'] or None
         
         def finish_callback(path, error):
             self.signals.recording_finished.emit(path if path else "", error if error else "")
@@ -554,5 +586,7 @@ class TrayApplication(QObject):
         self.notify("Finished", msg, QSystemTrayIcon.MessageIcon.Information, 2000)
 
     def exit_app(self):
-        if self.recorder: self.recorder.stop()
+        if self.recorder is not None:
+            self.tray_icon.showMessage("Recording", "Stop the recording and wait for it to finish saving.")
+            return
         self.app.quit()

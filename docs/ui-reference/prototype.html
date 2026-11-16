@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Olympiad Recorder — UI reference (prototype)</title>
+<style>
+:root { font-family: 'Segoe UI', Arial, sans-serif; color:#1d2734; background: #f3f5f8; }
+* { box-sizing: border-box; }
+html,body { margin:0; min-height:100%; }
+body { display:flex; align-items:flex-start; justify-content:center; padding:28px 18px; }
+.app { width:420px; background:white; border:1px solid #e0e5eb; border-radius:14px; box-shadow: 0 8px 24px rgba(25,35,50,.06); padding:19px; }
+.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:23px; }
+.brand { display:flex; align-items:center; gap:10px; font-size:17px; font-weight:650; }
+.brand svg { color:#68768a; }
+.pill { font-size:11px; font-weight:600; color:#68768a; border:1px solid #e7ebef; border-radius:20px; padding:5px 9px; background:#f7f9fb; }
+.label { font-size:13px; color:#4e5b6b; margin-bottom:8px; font-weight:600; }
+.code { border:1px solid #cfd7e1; border-radius:9px; height:44px; display:block; padding:0 12px; outline:none; font-family:inherit; font-size:16px; width:100%; background:white; color:#1c2531; }
+.code:focus { border-color:#507fca; box-shadow:0 0 0 3px rgba(40,105,195,.11); }
+.code:disabled { background:#f7f9fb; color:#5d6a7a; }
+.filename { font-size:12px; color:#748092; margin:9px 0 19px; }
+.status { background:#f4f6f8; border-radius:10px; min-height:110px; padding:21px 12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+.status-line { display:flex; align-items:center; gap:8px; font-weight:650; font-size:17px; }
+.status-line svg { color:#68768a; }
+.status[data-state="recording"] .status-line svg { color:#dc4747; }
+.status-sub { color:#7b8695; font-size:12px; text-align:center; }
+.buttons { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px; }
+.btn { border:0; border-radius:9px; height:47px; font-family:inherit; font-size:15px; font-weight:650; display:flex; justify-content:center; align-items:center; gap:9px; cursor:pointer; }
+.btn svg { width:16px; height:16px; }
+.btn.start { background:#2563ca; color:white; }
+.btn.start:hover:not(:disabled) { background:#1e56b4; }
+.btn.stop { background:#e9edf2; color:#3b4655; }
+.btn.stop:hover:not(:disabled) { background:#dce3ec; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+.sep { height:1px; background:#e8ecf1; margin:20px 0 17px; }
+.list-title { font-size:14px; font-weight:650; margin:0 0 12px; }
+.empty { color:#939ca9; font-size:13px; padding-bottom:3px; }
+.file { display:flex; align-items:center; gap:9px; padding:8px 0; font-size:13px; }
+.file svg { width:17px; height:17px; color:#6e7888; }
+.file .check { margin-left:auto; color:#20825b; }
+.path { display:flex; justify-content:center; align-items:center; gap:8px; margin-top:21px; font-size:12px; color:#7b8796; }
+.path svg { width:15px; height:15px; }
+.note { font-size:11px; color:#a0a8b4; margin-top:19px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="brand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"/></svg>Olympiad Recorder</div>
+    <span class="pill">Макет</span>
+  </div>
+  <div class="label">Код участника</div>
+  <input id="code" class="code" value="00125" autocomplete="off" spellcheck="false" aria-label="Код участника">
+  <div id="filename" class="filename">Имя файла: 00125.wav</div>
+  <div class="status" id="status" data-state="idle">
+    <div class="status-line">
+      <svg id="statusIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"/></svg>
+      <span id="statusText">Готово к записи</span>
+    </div>
+    <div class="status-sub" id="statusSub">Выберите участника и начните запись</div>
+  </div>
+  <div class="buttons">
+    <button class="btn start" id="start"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5c0-.8.85-1.3 1.55-.87l10.1 6.5a1.04 1.04 0 0 1 0 1.74l-10.1 6.5A1 1 0 0 1 8 18.5z"/></svg>Начать</button>
+    <button class="btn stop" id="stop" disabled><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>Стоп</button>
+  </div>
+  <div class="sep"></div>
+  <p class="list-title">Последние записи</p>
+  <div id="files"><div class="empty">Записей пока нет</div></div>
+  <div class="path"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>D:\Olympiad\Audio</div>
+  <div class="note">Демонстрация интерфейса: запись звука не выполняется</div>
+</div>
+<script>
+const code = document.querySelector('#code');
+const filename = document.querySelector('#filename');
+const status = document.querySelector('#status');
+const statusText = document.querySelector('#statusText');
+const statusSub = document.querySelector('#statusSub');
+const statusIcon = document.querySelector('#statusIcon');
+const start = document.querySelector('#start');
+const stop = document.querySelector('#stop');
+const filesEl = document.querySelector('#files');
+const files = [];
+let activeCode = null;
+const micIcon = `<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"/>`;
+const recIcon = `<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>`;
+code.addEventListener('input', () => {filename.textContent = `Имя файла: ${(code.value.trim() || 'код_участника')}.wav`; start.disabled = !code.value.trim() });
+start.addEventListener('click', () => {
+ if(!code.value.trim())return;
+ activeCode = code.value.trim(); code.disabled=true; start.disabled=true; stop.disabled=false;
+ status.dataset.state='recording'; statusIcon.innerHTML=recIcon;
+ statusText.textContent='Идёт запись'; statusSub.textContent=`Участник: ${activeCode}`;
+});
+stop.addEventListener('click', () => {
+ if(!activeCode)return;
+ files.unshift(activeCode+'.wav'); files.splice(3); activeCode=null;
+ code.disabled=false; start.disabled=false; stop.disabled=true;
+ status.dataset.state='saved'; statusIcon.innerHTML=micIcon;
+ statusText.textContent='Запись сохранена'; statusSub.textContent='Файл сохранён (имитация)';
+ filesEl.replaceChildren();
+ files.forEach(name=>{const row=document.createElement('div');row.className='file';row.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6"/></svg><span></span><svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>`;row.querySelector('span').textContent=name;filesEl.appendChild(row)});
+});
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import soundcard as sc
 import soundfile as sf
 import contextlib
+import errno
 import queue
 import types
 import threading
@@ -130,7 +131,7 @@ class AudioRecorder(threading.Thread):
     """
     def __init__(self, mic_id, source_mode, output_folder, output_format="mp3", 
                  normalize=False, mono=False, on_finish_callback=None, on_progress=None,
-                 on_notice=None):
+                 on_notice=None, *, filename_stem=None):
         super().__init__()
         self.mic_id = mic_id
         self.source_mode = source_mode # "mic", "loopback", "both"
@@ -141,6 +142,7 @@ class AudioRecorder(threading.Thread):
         self.callback = on_finish_callback
         self.on_progress = on_progress  # called with 0..1 while saving
         self.on_notice = on_notice  # called with a message if a device is lost
+        self.filename_stem = filename_stem
         
         self.recording = False
         self.stop_event = threading.Event()
@@ -167,6 +169,8 @@ class AudioRecorder(threading.Thread):
             return loopback_mic
         else:
             try:
+                if self.mic_id is None:
+                    return sc.default_microphone()
                 return sc.get_microphone(self.mic_id, include_loopback=False)
             except Exception as e:
                 available = [m.name for m in sc.all_microphones()]
@@ -180,31 +184,30 @@ class AudioRecorder(threading.Thread):
         self.error_message = None
         self.temp_files = []
         self.recorders = []
-        
+        recovery_path = None
+
         try:
+            os.makedirs(self.output_folder, exist_ok=True)
             # 1. Setup Recorders
             if self.source_mode == "both":
                 # Need two recorders
                 dev_mic = self._get_device(is_loopback=False)
                 dev_loop = self._get_device(is_loopback=True)
                 
-                t1 = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
-                t2 = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
-                self.temp_files = [t1, t2]
+                t1 = self._raw_file()
+                t2 = self._raw_file()
                 
                 self.recorders.append(RawRecorder(dev_mic, t1))
                 self.recorders.append(RawRecorder(dev_loop, t2))
                 
             elif self.source_mode == "loopback":
                 dev = self._get_device(is_loopback=True)
-                t1 = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
-                self.temp_files = [t1]
+                t1 = self._raw_file()
                 self.recorders.append(RawRecorder(dev, t1))
                 
             else: # mic
                 dev = self._get_device(is_loopback=False)
-                t1 = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
-                self.temp_files = [t1]
+                t1 = self._raw_file()
                 self.recorders.append(RawRecorder(dev, t1))
 
             # Probe before starting so both sources start close together.
@@ -237,43 +240,76 @@ class AudioRecorder(threading.Thread):
             for r in self.recorders:
                 r.stop()
             failed = next((r for r in self.recorders if r.error), None)
-            if failed and not any(r.frames for r in self.recorders):
-                raise Exception(f"Recording failed on '{failed.device.name}': {failed.error}")
+            if not any(r.frames for r in self.recorders):
+                if failed:
+                    raise RuntimeError(f"Recording failed on '{failed.device.name}': {failed.error}")
+                raise RuntimeError("Микрофон не успел записать звук. Повторите запись.")
 
             # 5. Mix, normalize and encode block by block. Loading a long
             # recording at once needs several GB of RAM (see #7).
-            if not os.path.exists(self.output_folder):
-                os.makedirs(self.output_folder)
-
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            filename = f"Recording_{timestamp}.{self.output_format}"
-            self.final_filepath = os.path.join(self.output_folder, filename)
-
-            sources = [sf.SoundFile(t) for t in self.temp_files]
+            stem = self.filename_stem or time.strftime("Recording_%Y%m%d_%H%M%S")
+            filename = f"{stem}.{self.output_format}"
+            destination = os.path.join(self.output_folder, filename)
+            with tempfile.NamedTemporaryFile(
+                prefix=f".oly-{stem}-", suffix=f".{self.output_format}",
+                dir=self.output_folder, delete=False,
+            ) as staged:
+                staged_path = staged.name
             try:
-                self._write_output(sources, self.final_filepath)
-            finally:
-                for s in sources:
-                    s.close()
+                with contextlib.ExitStack() as stack:
+                    sources = [stack.enter_context(sf.SoundFile(t)) for t in self.temp_files]
+                    self._write_output(sources, staged_path)
+            except Exception:
+                with contextlib.suppress(OSError):
+                    os.remove(staged_path)
+                raise
+
+            recovery_path = staged_path
+            # Publish an already-closed file atomically without replacing a rival
+            # file created after the initial check. Windows rename is exclusive.
+            if os.name == "nt":
+                os.rename(staged_path, destination)
+            else:
+                os.link(staged_path, destination)
+                with contextlib.suppress(OSError):
+                    os.remove(staged_path)
+            self.final_filepath = destination
 
             # saved, but shorter than asked for: the GUI keeps the file and warns
             if failed:
                 self.error_message = f"Recording on '{failed.device.name}' stopped early: {failed.error}"
 
+        except FileExistsError:
+            if recovery_path:
+                self.error_message = f"Файл {filename} уже существует. Выберите другой код или папку."
+            else:
+                self.error_message = f"Не удалось создать папку {self.output_folder}."
         except Exception as e:
-            self.error_message = str(e)
-            print(f"Error during recording process: {e}")
+            self.error_message = str(e) or type(e).__name__
+            if isinstance(e, OSError) and e.errno == errno.ENOSPC:
+                self.error_message = f"Недостаточно места на диске. {self.error_message}"
         finally:
             self.recording = False
-            # Clean up all temp files
+            retained = []
+            if not self.final_filepath:
+                retained = [recovery_path] if recovery_path else [
+                    r.filepath for r in self.recorders if r.frames
+                ]
             for t in self.temp_files:
-                if os.path.exists(t):
-                    try:
+                if t not in retained:
+                    with contextlib.suppress(OSError):
                         os.remove(t)
-                    except: pass
-                
+            if retained:
+                self.error_message += "\nАудио для восстановления:\n" + "\n".join(retained)
+
             if self.callback:
                 self.callback(self.final_filepath, self.error_message)
+
+    def _raw_file(self):
+        prefix = f"oly-{self.filename_stem}-" if self.filename_stem else "oly-"
+        with tempfile.NamedTemporaryFile(prefix=prefix, suffix=".wav", delete=False) as raw:
+            self.temp_files.append(raw.name)
+            return raw.name
 
     def stop(self):
         self.stop_event.set()
