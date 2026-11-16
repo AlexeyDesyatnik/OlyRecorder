@@ -137,7 +137,10 @@ class RecordingSettingsDialog(QDialog):
         self.setMinimumWidth(440)
 
     def browse(self):
-        folder = QFileDialog.getExistingDirectory(self, "Папка для записей", self.folder.text())
+        folder = QFileDialog.getExistingDirectory(
+            self, "Папка для записей", self.folder.text(),
+            options=QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog,
+        )
         if folder:
             self.folder.setText(str(Path(folder)))
 

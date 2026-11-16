@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import QSettings
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QApplication, QDialog, QMessageBox
+from PyQt6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox, QPushButton
 
 from audio_recorder import AudioRecorder
 from gui import SettingsWindow
@@ -215,6 +215,28 @@ def test_mp3_is_default_in_both_settings_dialogs(window):
         assert advanced.combo_fmt.currentText() == "MP3"
     finally:
         advanced.close()
+
+
+def test_basic_settings_browse_uses_qt_folder_picker(window, tmp_path, monkeypatch):
+    dialog = RecordingSettingsDialog(window)
+    picked = tmp_path / "new recordings"
+    answers = iter([str(picked), ""])
+    visited = []
+
+    def choose_folder(parent, _caption, current_folder, *, options):
+        assert parent is dialog
+        assert options & QFileDialog.Option.DontUseNativeDialog
+        assert options & QFileDialog.Option.ShowDirsOnly
+        visited.append(Path(current_folder))
+        return next(answers)
+
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", choose_folder)
+    browse = next(button for button in dialog.findChildren(QPushButton) if button.text() == "Обзор…")
+    browse.click()
+    assert Path(dialog.folder.text()) == picked
+    browse.click()
+    assert Path(dialog.folder.text()) == picked
+    assert visited == [window.output_folder, picked]
 
 
 def test_folder_path_click_creates_and_opens_recordings_folder(window, monkeypatch):
