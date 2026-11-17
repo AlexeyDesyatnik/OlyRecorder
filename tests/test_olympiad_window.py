@@ -1,5 +1,6 @@
 import errno
 import os
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -44,6 +45,30 @@ def wait_for(condition, timeout=5):
             return
         time.sleep(0.01)
     pytest.fail("Recording did not reach the expected state")
+
+
+@pytest.mark.parametrize("frozen", [False, True])
+def test_recordings_default_next_to_program(window, tmp_path, monkeypatch, frozen):
+    if frozen:
+        program = tmp_path / "app" / "OlympiadRecorder.exe"
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(sys, "executable", str(program))
+    else:
+        program = Path(__file__).resolve().parents[1] / "main.py"
+    expected = program.parent / "Recordings"
+
+    saved_folder = window.output_folder
+    tray_settings = SettingsWindow(settings=window.settings)
+    try:
+        assert Path(tray_settings.lbl_folder.text()) == saved_folder
+        window.settings.remove("folder")
+        window.reload_settings()
+        tray_settings.load_settings()
+
+        assert window.output_folder == expected
+        assert Path(tray_settings.lbl_folder.text()) == expected
+    finally:
+        tray_settings.close()
 
 
 def start_with_audio(window):

@@ -4,6 +4,7 @@ import json
 import shutil
 import tempfile
 import time
+from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QSystemTrayIcon, QMenu, QMainWindow, 
                              QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
                              QPushButton, QFileDialog, QMessageBox, QGroupBox, 
@@ -17,6 +18,11 @@ from clipboard_utils import copy_file_to_clipboard
 
 CONFIG_FILE = "settings.json"
 SHARED_KEYS = {"output_folder": "folder", "format": "format", "device_id": "microphone"}
+
+
+def default_recordings_folder():
+    program_file = sys.executable if getattr(sys, "frozen", False) else __file__
+    return Path(program_file).resolve().parent / "Recordings"
 
 
 def load_recording_settings(settings=None):
@@ -175,7 +181,7 @@ class SettingsWindow(QMainWindow):
         layout_out = QFormLayout()
         
         layout_folder_inner = QHBoxLayout()
-        self.lbl_folder = QLabel(os.getcwd())
+        self.lbl_folder = QLabel(str(default_recordings_folder()))
         btn_browse = QPushButton("Browse...")
         btn_browse.clicked.connect(self.browse_folder)
         layout_folder_inner.addWidget(self.lbl_folder)
@@ -278,7 +284,7 @@ class SettingsWindow(QMainWindow):
 
     def load_settings(self):
         data = self.defaults | load_recording_settings(self.settings)
-        self.lbl_folder.setText(data.get("output_folder", os.getcwd()))
+        self.lbl_folder.setText(data.get("output_folder") or str(default_recordings_folder()))
         self.combo_fmt.setCurrentText(data.get("format", "MP3").upper())
         self.select_microphone(data.get("device_id"), self.combo_mic.currentIndex())
         self.combo_left_click.setCurrentText(data.get("tray_click_mode", "Last Used"))

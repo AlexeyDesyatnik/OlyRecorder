@@ -4,7 +4,7 @@ import stat
 from enum import Enum, auto
 from pathlib import Path
 
-from PyQt6.QtCore import QMimeData, QSettings, QSize, QStandardPaths, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtCore import QMimeData, QSettings, QSize, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
@@ -14,7 +14,9 @@ from PyQt6.QtWidgets import (
 )
 
 from audio_recorder import AudioRecorder, get_devices
-from gui import SHARED_KEYS, SettingsWindow, bind_hotkeys, load_recording_settings
+from gui import (
+    SHARED_KEYS, SettingsWindow, bind_hotkeys, default_recordings_folder, load_recording_settings,
+)
 
 
 FORMATS = ("wav", "mp3", "flac")
@@ -156,8 +158,6 @@ class OlympiadWindow(QWidget):
         self.setWindowTitle("Olympiad Recorder")
         self.setWindowIcon(QIcon(icon_pixmap(MIC, 32, dpr=self.devicePixelRatioF())))
         self.settings = settings if settings is not None else app_settings()
-        documents = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
-        self.default_folder = Path(documents or Path.home()) / "Olympiad Recorder"
         self.recorder = None
         self.state = State.READY
         self.saving_detail = ""
@@ -309,7 +309,6 @@ class OlympiadWindow(QWidget):
         if self.recorder is not None:
             return
         window = SettingsWindow(self, settings=self.settings, defaults={
-            "output_folder": str(self.default_folder),
             "format": DEFAULT_FORMAT,
         })
         window.setWindowModality(Qt.WindowModality.WindowModal)
@@ -319,7 +318,8 @@ class OlympiadWindow(QWidget):
 
     def reload_settings(self):
         self.preferences = load_recording_settings(self.settings)
-        self.output_folder = Path(self.preferences.get("output_folder") or self.default_folder)
+        folder = self.preferences.get("output_folder")
+        self.output_folder = Path(folder) if folder else default_recordings_folder()
         self.output_format = (self.preferences.get("format") or "").lower()
         if self.output_format not in FORMATS:
             self.output_format = DEFAULT_FORMAT
